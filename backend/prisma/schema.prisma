@@ -329,7 +329,7 @@ model LessonStep {
   createdAt   DateTime @default(now())
 
   lesson   Lesson    @relation(fields: [lessonId], references: [id])
-  exercise Exercise? @relation
+  exercise Exercise? @relation(fields: [exerciseId], references: [id])
 
   @@map("lesson_steps")
 }
