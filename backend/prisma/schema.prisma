@@ -1,0 +1,1231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTH & USERS
+// ============================================================
+
+enum UserRole {
+  GUEST
+  LEARNER
+  PREMIUM_LEARNER
+  TUTOR
+  REVIEWER
+  CONTENT_EDITOR
+  INSTITUTION_MANAGER
+  SUPER_ADMIN
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  APPLE
+}
+
+model User {
+  id            String       @id @default(uuid())
+  email         String       @unique
+  passwordHash  String?
+  role          UserRole     @default(LEARNER)
+  authProvider  AuthProvider  @default(LOCAL)
+  emailVerified Boolean      @default(false)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  profile          UserProfile?
+  goals            UserGoal?
+  onboarding       OnboardingResult?
+  sessions         UserSession[]
+  progress         ProgressRecord[]
+  submissions      Submission[]
+  writingFeedback  WritingFeedback[]
+  speakingFeedback SpeakingFeedback[]
+  vocabReviews     VocabularyReview[]
+  mockAttempts     MockExamAttempt[]
+  badges           UserBadge[]
+  streaks          Streak[]
+  notifications    Notification[]
+  subscription     Subscription?
+  savedWords       SavedWord[]
+  mistakes         MistakeEntry[]
+  bookmarks        Bookmark[]
+  aiConversations  AiConversation[]
+  auditLogs        AuditLog[]
+  tutorAssignments TutorAssignment[]  @relation("TutorUser")
+  learnerAssignments TutorAssignment[] @relation("LearnerUser")
+  cohortMemberships CohortMember[]
+  reviewerSubmissions Submission[]     @relation("Reviewer")
+
+  @@map("users")
+}
+
+model UserProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  displayName     String?
+  avatarUrl       String?
+  nativeLanguage  String   @default("en")
+  timezone        String   @default("Europe/Berlin")
+  currentLevel    CefrLevel @default(A1)
+  targetLevel     CefrLevel?
+  targetExamProvider String?
+  targetExamDate  DateTime?
+  dailyGoalMinutes Int     @default(15)
+  preferredSkills  String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @unique
+  deviceInfo   String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model UserGoal {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  targetProvider    String?
+  targetLevel       CefrLevel?
+  targetExamDate    DateTime?
+  dailyGoalMinutes  Int      @default(15)
+  dailyGoalXp       Int      @default(50)
+  weeklyGoalDays    Int      @default(5)
+  focusSkills       String[] @default([])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_goals")
+}
+
+model OnboardingResult {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  completedAt        DateTime?
+  nativeLanguage     String?
+  germanExperience   String?
+  learningPurpose    String?
+  examProvider       String?
+  targetLevel        CefrLevel?
+  targetExamDate     DateTime?
+  dailyGoalMinutes   Int?
+  placementScore     Float?
+  placementLevel     CefrLevel?
+  weakSkills         String[]  @default([])
+  strongSkills       String[]  @default([])
+  questionnaireData  Json?
+  createdAt          DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("onboarding_results")
+}
+
+// ============================================================
+// CEFR & EXAM PROVIDERS
+// ============================================================
+
+enum CefrLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+enum Skill {
+  LISTENING
+  READING
+  WRITING
+  SPEAKING
+  GRAMMAR
+  VOCABULARY
+  PRONUNCIATION
+}
+
+model ExamProvider {
+  id          String   @id @default(uuid())
+  name        String   @unique  // "goethe", "telc"
+  displayName String
+  description String?
+  logoUrl     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exams ExamDefinition[]
+
+  @@map("exam_providers")
+}
+
+model ExamDefinition {
+  id              String    @id @default(uuid())
+  providerId      String
+  level           CefrLevel
+  name            String    // "Goethe-Zertifikat B1"
+  slug            String    @unique
+  description     String?
+  totalDuration   Int?      // minutes
+  passingScore    Float?
+  isActive        Boolean   @default(true)
+  metadata        Json?     // extra rules, tracks (general/school/pro)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  provider ExamProvider @relation(fields: [providerId], references: [id])
+  modules  ExamModule[]
+  mockTemplates MockExamTemplate[]
+
+  @@unique([providerId, level])
+  @@map("exam_definitions")
+}
+
+model ExamModule {
+  id               String    @id @default(uuid())
+  examId           String
+  skill            Skill
+  name             String    // "Lesen", "Hören", etc.
+  orderIndex       Int
+  duration         Int?      // minutes
+  totalPoints      Float?
+  passingPoints    Float?
+  instructions     String?
+  replayAllowed    Boolean   @default(false)
+  maxReplays       Int?
+  navigationLocked Boolean   @default(false)
+  metadata         Json?     // subtests, timing rules, etc.
+  createdAt        DateTime  @default(now())
+
+  exam     ExamDefinition @relation(fields: [examId], references: [id])
+  subtests ExamSubtest[]
+
+  @@map("exam_modules")
+}
+
+model ExamSubtest {
+  id            String  @id @default(uuid())
+  moduleId      String
+  name          String  // "Teil 1", "Teil 2"
+  orderIndex    Int
+  taskType      String  // "mcq", "matching", "gap_fill", etc.
+  itemCount     Int?
+  points        Float?
+  duration      Int?
+  instructions  String?
+  metadata      Json?
+
+  module ExamModule @relation(fields: [moduleId], references: [id])
+
+  @@map("exam_subtests")
+}
+
+// ============================================================
+// LEARNING PATHS & LESSONS
+// ============================================================
+
+enum PathwayType {
+  CEFR_GENERAL
+  PROVIDER_EXAM
+  SKILL_SPECIFIC
+  TOPIC_BASED
+  GRAMMAR
+  VOCABULARY
+  PRONUNCIATION
+  EXAM_STRATEGY
+  SPEAKING_FLUENCY
+  WRITING_MASTERY
+}
+
+model Pathway {
+  id          String      @id @default(uuid())
+  type        PathwayType
+  level       CefrLevel?
+  provider    String?
+  skill       Skill?
+  title       String
+  slug        String      @unique
+  description String?
+  imageUrl    String?
+  orderIndex  Int         @default(0)
+  isPublished Boolean     @default(false)
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  units PathwayUnit[]
+
+  @@map("pathways")
+}
+
+model PathwayUnit {
+  id          String   @id @default(uuid())
+  pathwayId   String
+  title       String
+  description String?
+  orderIndex  Int
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+
+  pathway Pathway  @relation(fields: [pathwayId], references: [id])
+  lessons Lesson[]
+
+  @@map("pathway_units")
+}
+
+model Lesson {
+  id              String    @id @default(uuid())
+  unitId          String?
+  title           String
+  slug            String    @unique
+  description     String?
+  type            String    // "micro", "structured", "story", "grammar", "vocab", "drill"
+  skill           Skill?
+  level           CefrLevel?
+  estimatedMinutes Int?
+  xpReward        Int       @default(10)
+  imageUrl        String?
+  isPublished     Boolean   @default(false)
+  orderIndex      Int       @default(0)
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  unit     PathwayUnit?  @relation(fields: [unitId], references: [id])
+  steps    LessonStep[]
+  progress ProgressRecord[]
+
+  @@map("lessons")
+}
+
+model LessonStep {
+  id          String @id @default(uuid())
+  lessonId    String
+  orderIndex  Int
+  type        String // "explanation", "exercise", "dialogue", "vocab_card", "grammar_card"
+  content     Json   // flexible content block
+  exerciseId  String? @unique
+  createdAt   DateTime @default(now())
+
+  lesson   Lesson    @relation(fields: [lessonId], references: [id])
+  exercise Exercise? @relation
+
+  @@map("lesson_steps")
+}
+
+// ============================================================
+// EXERCISES & ITEM BANK
+// ============================================================
+
+enum ExerciseType {
+  MCQ
+  FILL_BLANK
+  MATCHING
+  SENTENCE_ORDER
+  DICTATION
+  TRANSLATION
+  READ_ALOUD
+  SHADOWING
+  ERROR_CORRECTION
+  IMAGE_PROMPT
+  LISTENING_MCQ
+  LISTENING_MATCH
+  LISTENING_NOTE_COMPLETE
+  LISTENING_TRUE_FALSE
+  LISTENING_GAP_FILL
+  READING_MCQ
+  READING_HEADING_MATCH
+  READING_SEQUENCE
+  READING_MATCHING
+  READING_GAP_FILL
+  WRITING_PROMPT
+  SPEAKING_PROMPT
+  CONVERSATION_DRILL
+  DRAG_DROP
+}
+
+model Exercise {
+  id              String       @id @default(uuid())
+  type            ExerciseType
+  skill           Skill?
+  level           CefrLevel?
+  provider        String?
+  prompt          String
+  instructions    String?
+  content         Json         // question data, options, audio refs, etc.
+  answerKey       Json?
+  explanation     String?
+  hints           String[]     @default([])
+  difficulty      Int          @default(3) // 1-5
+  estimatedSeconds Int?
+  xpValue         Int          @default(5)
+  tags            String[]     @default([])
+  grammarTags     String[]     @default([])
+  vocabTags       String[]     @default([])
+  topicTags       String[]     @default([])
+  examSection     String?
+  isPublished     Boolean      @default(false)
+  version         Int          @default(1)
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  step           LessonStep?
+  itemBankEntry  ItemBankItem?
+  submissionAnswers SubmissionAnswer[]
+
+  @@map("exercises")
+}
+
+model ItemBankItem {
+  id             String   @id @default(uuid())
+  exerciseId     String   @unique
+  provider       String?
+  level          CefrLevel?
+  skill          Skill?
+  subskill       String?
+  examSection    String?
+  difficulty     Int      @default(3)
+  discriminationIndex Float?
+  usageCount     Int      @default(0)
+  correctRate    Float?
+  reviewStatus   String   @default("draft") // draft, reviewed, approved, archived
+  reviewedBy     String?
+  reviewNotes    String?
+  isActive       Boolean  @default(true)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+
+  @@map("item_bank_items")
+}
+
+// ============================================================
+// LISTENING ASSETS
+// ============================================================
+
+model ListeningAsset {
+  id              String    @id @default(uuid())
+  title           String
+  audioUrl        String
+  duration        Int       // seconds
+  transcriptText  String?
+  transcriptHtml  String?
+  level           CefrLevel?
+  accentType      String?
+  hasBackgroundNoise Boolean @default(false)
+  speakerCount    Int       @default(1)
+  tags            String[]  @default([])
+  isPublished     Boolean   @default(false)
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("listening_assets")
+}
+
+// ============================================================
+// READING PASSAGES
+// ============================================================
+
+model ReadingPassage {
+  id           String    @id @default(uuid())
+  title        String
+  content      String
+  contentHtml  String?
+  textType     String    // "article", "email", "ad", "form", "forum", "academic"
+  level        CefrLevel?
+  wordCount    Int?
+  difficulty   Int       @default(3)
+  source       String?
+  tags         String[]  @default([])
+  isPublished  Boolean   @default(false)
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("reading_passages")
+}
+
+// ============================================================
+// WRITING
+// ============================================================
+
+model WritingPrompt {
+  id            String    @id @default(uuid())
+  title         String
+  promptText    String
+  instructions  String?
+  textType      String    // "email", "letter", "essay", "opinion", "complaint", etc.
+  level         CefrLevel?
+  provider      String?
+  minWords      Int?
+  maxWords      Int?
+  timeLimitSecs Int?
+  rubricId      String?
+  modelAnswer   String?
+  tags          String[]  @default([])
+  isPublished   Boolean   @default(false)
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  rubric Rubric? @relation(fields: [rubricId], references: [id])
+
+  @@map("writing_prompts")
+}
+
+model WritingFeedback {
+  id                String   @id @default(uuid())
+  submissionId      String
+  userId            String
+  reviewerId        String?
+  isAiFeedback      Boolean  @default(true)
+  taskAchievement   Float?
+  organization      Float?
+  coherence         Float?
+  grammarAccuracy   Float?
+  vocabularyRange   Float?
+  spelling          Float?
+  punctuation       Float?
+  toneRegister      Float?
+  overallScore      Float?
+  cefrEstimate      CefrLevel?
+  suggestions       Json?    // sentence-level suggestions
+  generalFeedback   String?
+  rubricMapping     Json?
+  createdAt         DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id])
+  submission Submission @relation(fields: [submissionId], references: [id])
+
+  @@map("writing_feedback")
+}
+
+// ============================================================
+// SPEAKING
+// ============================================================
+
+model SpeakingPrompt {
+  id            String    @id @default(uuid())
+  title         String
+  promptText    String
+  instructions  String?
+  taskType      String    // "read_aloud", "describe_picture", "roleplay", "monologue", "dialogue"
+  level         CefrLevel?
+  provider      String?
+  timeLimitSecs Int?
+  imageUrl      String?
+  audioUrl      String?   // model audio
+  rubricId      String?
+  tags          String[]  @default([])
+  isPublished   Boolean   @default(false)
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  rubric Rubric? @relation(fields: [rubricId], references: [id])
+
+  @@map("speaking_prompts")
+}
+
+model SpeakingFeedback {
+  id                String   @id @default(uuid())
+  submissionId      String
+  userId            String
+  reviewerId        String?
+  isAiFeedback      Boolean  @default(true)
+  pronunciation     Float?
+  fluency           Float?
+  intonation        Float?
+  grammarAccuracy   Float?
+  vocabularyRange   Float?
+  taskFulfillment   Float?
+  interactionQuality Float?
+  overallScore      Float?
+  cefrEstimate      CefrLevel?
+  transcript        String?
+  feedback          String?
+  detailedFeedback  Json?
+  createdAt         DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id])
+  submission Submission @relation(fields: [submissionId], references: [id])
+
+  @@map("speaking_feedback")
+}
+
+// ============================================================
+// RUBRICS
+// ============================================================
+
+model Rubric {
+  id          String   @id @default(uuid())
+  name        String
+  skill       Skill
+  level       CefrLevel?
+  provider    String?
+  criteria    Json     // array of { name, description, maxPoints, descriptors[] }
+  maxScore    Float
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  writingPrompts  WritingPrompt[]
+  speakingPrompts SpeakingPrompt[]
+
+  @@map("rubrics")
+}
+
+// ============================================================
+// SUBMISSIONS
+// ============================================================
+
+model Submission {
+  id            String   @id @default(uuid())
+  userId        String
+  type          String   // "lesson", "exercise", "writing", "speaking", "mock_section"
+  referenceId   String?  // lesson/exercise/prompt ID
+  referenceType String?
+  content       Json?    // submitted text, audio URL, answers
+  score         Float?
+  maxScore      Float?
+  status        String   @default("submitted") // submitted, ai_reviewed, human_reviewed, archived
+  reviewerId    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user     User   @relation(fields: [userId], references: [id])
+  reviewer User?  @relation("Reviewer", fields: [reviewerId], references: [id])
+  answers  SubmissionAnswer[]
+  writingFeedback  WritingFeedback[]
+  speakingFeedback SpeakingFeedback[]
+
+  @@map("submissions")
+}
+
+model SubmissionAnswer {
+  id           String  @id @default(uuid())
+  submissionId String
+  exerciseId   String
+  answer       Json
+  isCorrect    Boolean?
+  score        Float?
+  timeSpent    Int?    // seconds
+  createdAt    DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id])
+  exercise   Exercise   @relation(fields: [exerciseId], references: [id])
+
+  @@map("submission_answers")
+}
+
+// ============================================================
+// VOCABULARY
+// ============================================================
+
+model VocabularyItem {
+  id              String    @id @default(uuid())
+  word            String
+  translation     String?
+  partOfSpeech    String?
+  gender          String?   // for nouns
+  plural          String?
+  exampleSentence String?
+  audioUrl        String?
+  imageUrl        String?
+  level           CefrLevel?
+  frequency       Int?      // exam frequency rank
+  collocations    String[]  @default([])
+  wordFamily      String[]  @default([])
+  synonyms        String[]  @default([])
+  antonyms        String[]  @default([])
+  tags            String[]  @default([])
+  topicTags       String[]  @default([])
+  isPublished     Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  reviews   VocabularyReview[]
+  savedBy   SavedWord[]
+
+  @@unique([word, level])
+  @@map("vocabulary_items")
+}
+
+model VocabularyReview {
+  id          String   @id @default(uuid())
+  userId      String
+  vocabId     String
+  easeFactor  Float    @default(2.5)
+  interval    Int      @default(1)     // days
+  repetitions Int      @default(0)
+  nextReview  DateTime @default(now())
+  lastReview  DateTime?
+  status      String   @default("learning") // learning, reviewing, mastered
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id])
+  vocab VocabularyItem @relation(fields: [vocabId], references: [id])
+
+  @@unique([userId, vocabId])
+  @@map("vocabulary_reviews")
+}
+
+model SavedWord {
+  id        String   @id @default(uuid())
+  userId    String
+  vocabId   String
+  source    String?  // "reading", "listening", "manual"
+  notes     String?
+  createdAt DateTime @default(now())
+
+  user  User           @relation(fields: [userId], references: [id])
+  vocab VocabularyItem @relation(fields: [vocabId], references: [id])
+
+  @@unique([userId, vocabId])
+  @@map("saved_words")
+}
+
+// ============================================================
+// GRAMMAR
+// ============================================================
+
+model GrammarTopic {
+  id           String    @id @default(uuid())
+  title        String
+  slug         String    @unique
+  level        CefrLevel?
+  category     String    // "articles", "verbs", "cases", "sentence_structure", etc.
+  explanation  String
+  explanationHtml String?
+  examples     Json?     // array of example objects
+  exceptions   Json?
+  tips         String[]  @default([])
+  orderIndex   Int       @default(0)
+  isPublished  Boolean   @default(false)
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("grammar_topics")
+}
+
+// ============================================================
+// PRONUNCIATION
+// ============================================================
+
+model PronunciationDrill {
+  id          String    @id @default(uuid())
+  title       String
+  type        String    // "phoneme", "minimal_pair", "stress", "intonation", "read_aloud"
+  level       CefrLevel?
+  content     Json      // words, audio references, correct phonemes
+  audioUrl    String?
+  instructions String?
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("pronunciation_drills")
+}
+
+// ============================================================
+// MOCK EXAMS
+// ============================================================
+
+model MockExamTemplate {
+  id              String   @id @default(uuid())
+  examDefinitionId String
+  name            String
+  variant         String   @default("A")
+  sections        Json     // array of section configs with item pools
+  totalDuration   Int?
+  isPublished     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  examDefinition ExamDefinition @relation(fields: [examDefinitionId], references: [id])
+  attempts       MockExamAttempt[]
+
+  @@map("mock_exam_templates")
+}
+
+model MockExamAttempt {
+  id           String    @id @default(uuid())
+  userId       String
+  templateId   String
+  status       String    @default("in_progress") // in_progress, paused, submitted, graded
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  totalScore   Float?
+  maxScore     Float?
+  breakdown    Json?     // section-by-section scores
+  answers      Json?     // persisted answers
+  metadata     Json?
+
+  user     User              @relation(fields: [userId], references: [id])
+  template MockExamTemplate  @relation(fields: [templateId], references: [id])
+  sections MockExamSection[]
+
+  @@map("mock_exam_attempts")
+}
+
+model MockExamSection {
+  id          String    @id @default(uuid())
+  attemptId   String
+  skill       Skill
+  name        String
+  orderIndex  Int
+  startedAt   DateTime?
+  completedAt DateTime?
+  score       Float?
+  maxScore    Float?
+  answers     Json?
+  timeSpent   Int?      // seconds
+
+  attempt MockExamAttempt @relation(fields: [attemptId], references: [id])
+
+  @@map("mock_exam_sections")
+}
+
+// ============================================================
+// PROGRESS & GAMIFICATION
+// ============================================================
+
+model ProgressRecord {
+  id          String   @id @default(uuid())
+  userId      String
+  lessonId    String?
+  skill       Skill?
+  level       CefrLevel?
+  type        String   // "lesson_complete", "exercise_correct", "review_done", etc.
+  xpEarned    Int      @default(0)
+  accuracy    Float?
+  timeSpent   Int?     // seconds
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id])
+  lesson Lesson? @relation(fields: [lessonId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("progress_records")
+}
+
+model Badge {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  displayName String
+  description String
+  imageUrl    String?
+  category    String  // "streak", "skill", "exam", "social", "milestone"
+  criteria    Json    // conditions to earn
+  xpBonus     Int     @default(0)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+
+  userBadges UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  badge Badge @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+model Streak {
+  id            String   @id @default(uuid())
+  userId        String
+  currentStreak Int      @default(0)
+  longestStreak Int      @default(0)
+  lastActiveDate DateTime?
+  freezesUsed   Int      @default(0)
+  freezesAvailable Int   @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId])
+  @@map("streaks")
+}
+
+// ============================================================
+// MISTAKES & BOOKMARKS
+// ============================================================
+
+model MistakeEntry {
+  id          String   @id @default(uuid())
+  userId      String
+  category    String   // "grammar", "vocab", "listening", "reading", "writing", "speaking"
+  exerciseId  String?
+  question    String?
+  userAnswer  String?
+  correctAnswer String?
+  explanation String?
+  isResolved  Boolean  @default(false)
+  retryCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("mistake_entries")
+}
+
+model Bookmark {
+  id            String   @id @default(uuid())
+  userId        String
+  referenceId   String
+  referenceType String   // "lesson", "exercise", "grammar_topic", "vocab_item"
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, referenceId, referenceType])
+  @@map("bookmarks")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // "study_reminder", "streak", "review_due", "exam_countdown", "achievement"
+  title     String
+  body      String
+  data      Json?
+  isRead    Boolean  @default(false)
+  channel   String   @default("in_app") // "in_app", "email", "push"
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ============================================================
+// SUBSCRIPTIONS
+// ============================================================
+
+enum SubscriptionPlan {
+  FREE
+  PREMIUM_MONTHLY
+  PREMIUM_YEARLY
+  INSTITUTION
+  TRIAL
+}
+
+model Subscription {
+  id              String           @id @default(uuid())
+  userId          String           @unique
+  plan            SubscriptionPlan @default(FREE)
+  status          String           @default("active") // active, cancelled, expired, past_due
+  startDate       DateTime         @default(now())
+  endDate         DateTime?
+  trialEndDate    DateTime?
+  paymentProvider String?          // "stripe", "paypal"
+  externalId      String?
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id])
+  payments Payment[]
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  amount         Float
+  currency       String   @default("EUR")
+  status         String   // "pending", "completed", "failed", "refunded"
+  paymentMethod  String?
+  externalId     String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@map("payments")
+}
+
+// ============================================================
+// INSTITUTIONS & COHORTS
+// ============================================================
+
+model Institution {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  contactEmail String?
+  maxSeats    Int?
+  isActive    Boolean  @default(true)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cohorts Cohort[]
+
+  @@map("institutions")
+}
+
+model Cohort {
+  id            String   @id @default(uuid())
+  institutionId String
+  name          String
+  description   String?
+  level         CefrLevel?
+  startDate     DateTime?
+  endDate       DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  institution Institution    @relation(fields: [institutionId], references: [id])
+  members     CohortMember[]
+
+  @@map("cohorts")
+}
+
+model CohortMember {
+  id        String   @id @default(uuid())
+  cohortId  String
+  userId    String
+  role      String   @default("learner") // "learner", "tutor", "manager"
+  joinedAt  DateTime @default(now())
+
+  cohort Cohort @relation(fields: [cohortId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([cohortId, userId])
+  @@map("cohort_members")
+}
+
+model TutorAssignment {
+  id         String   @id @default(uuid())
+  tutorId    String
+  learnerId  String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  tutor   User @relation("TutorUser", fields: [tutorId], references: [id])
+  learner User @relation("LearnerUser", fields: [learnerId], references: [id])
+
+  @@unique([tutorId, learnerId])
+  @@map("tutor_assignments")
+}
+
+// ============================================================
+// AI TUTOR
+// ============================================================
+
+model AiConversation {
+  id        String   @id @default(uuid())
+  userId    String
+  mode      String   // "grammar", "vocab", "writing_coach", "speaking_coach", "roleplay", "exam_strategy", "general"
+  title     String?
+  messages  Json     @default("[]")
+  level     CefrLevel?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("ai_conversations")
+}
+
+// ============================================================
+// EXTERNAL CONTENT
+// ============================================================
+
+enum ContentSourceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model ExternalContentSource {
+  id           String              @id @default(uuid())
+  name         String
+  url          String
+  description  String?
+  status       ContentSourceStatus @default(PENDING)
+  approvedBy   String?
+  approvedAt   DateTime?
+  license      String?
+  tags         String[]            @default([])
+  metadata     Json?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  items ExternalContentItem[]
+
+  @@map("external_content_sources")
+}
+
+model ExternalContentItem {
+  id             String   @id @default(uuid())
+  sourceId       String
+  title          String
+  externalUrl    String
+  description    String?
+  level          CefrLevel?
+  skill          Skill?
+  contentType    String   @default("original") // "original", "licensed", "linked", "ai_generated"
+  thumbnailUrl   String?
+  tags           String[] @default([])
+  isApproved     Boolean  @default(false)
+  approvedBy     String?
+  approvedAt     DateTime?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  source ExternalContentSource @relation(fields: [sourceId], references: [id])
+
+  @@map("external_content_items")
+}
+
+// ============================================================
+// CONVERSATIONS (Original Speaking Content)
+// ============================================================
+
+model Conversation {
+  id             String    @id @default(uuid())
+  title          String
+  slug           String    @unique
+  description    String?
+  scenario       String    // "doctor_visit", "apartment_search", "job_interview", etc.
+  level          CefrLevel?
+  formality      String    @default("neutral") // "formal", "informal", "neutral"
+  estimatedMinutes Int?
+  audioUrl       String?
+  imageUrl       String?
+  culturalNotes  String?
+  tags           String[]  @default([])
+  isPublished    Boolean   @default(false)
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  turns          ConversationTurn[]
+  keyPhrases     ConversationPhrase[]
+
+  @@map("conversations")
+}
+
+model ConversationTurn {
+  id              String @id @default(uuid())
+  conversationId  String
+  speakerRole     String // "Patient", "Arzt", "Mieter", "Vermieter"
+  speakerName     String?
+  text            String
+  audioUrl        String?
+  translation     String?
+  orderIndex      Int
+  metadata        Json?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@map("conversation_turns")
+}
+
+model ConversationPhrase {
+  id              String @id @default(uuid())
+  conversationId  String
+  phrase          String
+  translation     String?
+  usage           String?
+  isKeyPhrase     Boolean @default(true)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@map("conversation_phrases")
+}
+
+// ============================================================
+// CONTENT VERSIONING
+// ============================================================
+
+model ContentVersion {
+  id            String   @id @default(uuid())
+  entityType    String   // "lesson", "exercise", "grammar_topic", etc.
+  entityId      String
+  version       Int
+  data          Json
+  publishedAt   DateTime?
+  publishedBy   String?
+  status        String   @default("draft") // "draft", "published", "archived"
+  changelog     String?
+  createdAt     DateTime @default(now())
+
+  @@unique([entityType, entityId, version])
+  @@map("content_versions")
+}
+
+// ============================================================
+// AUDIT LOGS
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  oldData    Json?
+  newData    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

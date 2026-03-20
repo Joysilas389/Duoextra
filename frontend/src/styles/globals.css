@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind utilities;
+@tailwind components;
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --brand-primary: #0c85f2;
+  --brand-primary-dark: #0068cf;
+  --brand-accent: #d63bfa;
+  --brand-success: #22c55e;
+  --brand-warning: #f59e0b;
+  --brand-fire: #f97316;
+  --brand-bg: #f8fafc;
+  --brand-surface: #ffffff;
+  --brand-text: #0f172a;
+  --brand-text-secondary: #64748b;
+  --brand-border: #e2e8f0;
+  --brand-gradient: linear-gradient(135deg, #0c85f2 0%, #d63bfa 100%);
+  --radius: 12px;
+}
+
+.dark {
+  --brand-bg: #0b1120;
+  --brand-surface: #1a2332;
+  --brand-text: #f1f5f9;
+  --brand-text-secondary: #94a3b8;
+  --brand-border: #2d3a4a;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--brand-bg);
+  color: var(--brand-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--brand-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-text-secondary);
+}
+
+/* Utility classes */
+.gradient-text {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-hover {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* Streak fire animation */
+@keyframes fireGlow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.4)); }
+  50% { filter: drop-shadow(0 0 12px rgba(249, 115, 22, 0.7)); }
+}
+.fire-glow {
+  animation: fireGlow 2s ease-in-out infinite;
+}
+
+/* XP gain animation */
+@keyframes xpPop {
+  0% { transform: scale(0.5) translateY(0); opacity: 0; }
+  50% { transform: scale(1.2) translateY(-10px); opacity: 1; }
+  100% { transform: scale(1) translateY(-20px); opacity: 0; }
+}
+.xp-pop {
+  animation: xpPop 1s ease-out forwards;
+}
+
+/* Focus states for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
