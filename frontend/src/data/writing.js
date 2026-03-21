@@ -1,0 +1,7 @@
+export const writingPrompts = [
+  { id: 'wp1', title: 'E-Mail: Termin absagen', level: 'A2', type: 'email', prompt: 'Sie haben einen Arzttermin am Freitag um 15 Uhr. Sie koennen nicht kommen, weil Sie arbeiten muessen. Schreiben Sie eine E-Mail an die Arztpraxis. Sagen Sie den Termin ab und bitten Sie um einen neuen Termin.', minWords: 30, maxWords: 60 },
+  { id: 'wp2', title: 'Beschwerde: Nachbar', level: 'B1', type: 'complaint', prompt: 'Ihr Nachbar macht jede Nacht bis 2 Uhr laute Musik. Sie haben schon zweimal mit ihm gesprochen, aber es hat sich nichts geaendert. Schreiben Sie einen Brief an die Hausverwaltung.', minWords: 80, maxWords: 120 },
+  { id: 'wp3', title: 'E-Mail: Kurs anmelden', level: 'A2', type: 'email', prompt: 'Sie moechten sich fuer einen Deutschkurs anmelden. Schreiben Sie eine E-Mail an die Sprachschule. Fragen Sie nach Kurszeiten, Preisen und ob es einen Einstufungstest gibt.', minWords: 40, maxWords: 80 },
+  { id: 'wp4', title: 'Anfrage: Praktikum', level: 'B1', type: 'email', prompt: 'Sie moechten ein Praktikum bei einer deutschen Firma machen. Schreiben Sie eine E-Mail. Stellen Sie sich vor, erklaeren Sie Ihre Motivation und fragen Sie nach den Bedingungen.', minWords: 80, maxWords: 150 },
+  { id: 'wp5', title: 'Meinung: Homeoffice', level: 'B2', type: 'opinion', prompt: 'Schreiben Sie Ihre Meinung zum Thema: Sollten alle Arbeitnehmer das Recht auf Homeoffice haben? Nennen Sie Vor- und Nachteile und begruenden Sie Ihre Meinung.', minWords: 120, maxWords: 200 },
+];
