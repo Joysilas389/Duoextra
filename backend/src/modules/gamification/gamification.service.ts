@@ -69,7 +69,7 @@ export class GamificationService {
     const earned = await this.prisma.userBadge.findMany({ where: { userId } });
     const earnedIds = new Set(earned.map((e) => e.badgeId));
 
-    const newBadges = [];
+    const newBadges: any[] = [];
     for (const badge of badges) {
       if (earnedIds.has(badge.id)) continue;
       const criteria = badge.criteria as any;
