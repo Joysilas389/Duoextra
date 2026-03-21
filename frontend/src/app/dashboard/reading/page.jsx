@@ -1,10 +1,18 @@
 'use client';
-import { BookOpen } from 'lucide-react';
+import Link from 'next/link';
+import { conversations } from '@/data/conversations';
+import PageHeader from '@/components/app/PageHeader';
+import { BookOpen, ChevronRight } from 'lucide-react';
+
 export default function ReadingPage() {
-  return (<div className="max-w-4xl space-y-8">
-    <div><h1 className="font-display font-bold text-2xl mb-1">Reading Practice</h1><p className="text-slate-500">Articles, emails, forms, and academic texts — matched to exam formats.</p></div>
-    <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
-      <BookOpen className="w-12 h-12 text-emerald-400 mx-auto mb-3" /><h3 className="font-display font-semibold text-lg">Reading tasks in Learning Paths</h3>
-      <p className="text-slate-500 text-sm mt-1">Structured reading exercises by CEFR level with comprehension tasks.</p></div>
-  </div>);
+  return (
+    <div className="max-w-3xl space-y-5">
+      <PageHeader title="Reading Practice" subtitle="Read real German dialogues" />
+      <div className="space-y-2">{conversations.map(c => (
+        <Link key={c.id} href={`/dashboard/conversations/${c.id}`} className="group flex items-center gap-3 p-3.5 rounded-xl bg-white border border-slate-200 card-hover">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center"><BookOpen className="w-4 h-4 text-emerald-600" /></div>
+          <div className="flex-1"><h3 className="font-medium text-sm">{c.title}</h3>
+            <div className="flex gap-2 mt-1"><span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 font-medium">{c.level}</span><span className="text-[10px] text-slate-400">{c.description}</span></div></div>
+          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-brand-500" /></Link>))}</div>
+    </div>);
 }
