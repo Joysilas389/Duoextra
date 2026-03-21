@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import { v4 as uuid } from 'uuid';
+import * as crypto from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   RegisterDto,
@@ -117,7 +117,7 @@ export class AuthService {
       expiresIn: this.config.get('JWT_EXPIRES_IN') || '15m',
     });
 
-    const refreshToken = uuid();
+    const refreshToken = crypto.randomUUID();
     const refreshExpiresIn = this.config.get('JWT_REFRESH_EXPIRES_IN') || '7d';
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);

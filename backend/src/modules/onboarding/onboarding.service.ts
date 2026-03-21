@@ -14,15 +14,16 @@ export class OnboardingService {
     targetExamDate?: string;
     dailyGoalMinutes?: number;
   }) {
+    const { targetLevel, ...rest } = data;
+    const prismaData = {
+      ...rest,
+      targetLevel: targetLevel as any,
+      questionnaireData: data as any,
+    };
     return this.prisma.onboardingResult.upsert({
       where: { userId },
-      update: { ...data, questionnaireData: data as any },
-      create: {
-        userId,
-        ...data,
-        targetLevel: data.targetLevel as any,
-        questionnaireData: data as any,
-      },
+      update: prismaData,
+      create: { userId, ...prismaData },
     });
   }
 
