@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ExternalContentService } from './external-content.service';
 
@@ -9,4 +9,7 @@ import { ExternalContentService } from './external-content.service';
 @Controller('external-content')
 export class ExternalContentController {
   constructor(private readonly service: ExternalContentService) {}
+
+  @Get()
+  async findAll() { return this.service.findAll(); }
 }

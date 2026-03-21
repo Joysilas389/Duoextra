@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -33,16 +32,6 @@ import { AuditModule } from './modules/audit/audit.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_URL
-          ? new URL(process.env.REDIS_URL).hostname
-          : 'localhost',
-        port: process.env.REDIS_URL
-          ? parseInt(new URL(process.env.REDIS_URL).port)
-          : 6379,
-      },
-    }),
     PrismaModule,
     RedisModule,
     AuthModule,
